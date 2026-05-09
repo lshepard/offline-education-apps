@@ -147,36 +147,30 @@ function HomePage({
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Educational Tools
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            Select a tool to start with a pre-configured AI assistant optimized for that task.
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Select a tool to start with a pre-configured AI assistant.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {EDUCATIONAL_PRESETS.map((preset) => {
-              const colors = colorClasses[preset.color] || colorClasses.blue;
-              return (
-                <button
-                  key={preset.id}
-                  onClick={() => onSelectPreset(preset)}
-                  disabled={!isModelReady}
-                  className={`text-left p-4 rounded-xl border ${colors.border} ${colors.bg} hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${colors.bg}`}>
-                      <PresetIcon icon={preset.icon} className={`w-5 h-5 ${colors.icon}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                        {preset.name}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                        {preset.description}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
+            {EDUCATIONAL_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => onSelectPreset(preset)}
+                disabled={!isModelReady}
+                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 first:rounded-t-lg last:rounded-b-lg"
+              >
+                <PresetIcon icon={preset.icon} className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                  {preset.name}
+                </span>
+                <span className="text-gray-400 dark:text-gray-500 text-sm hidden sm:block flex-1 truncate">
+                  {preset.description}
+                </span>
+                <svg className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            ))}
           </div>
         </div>
 
