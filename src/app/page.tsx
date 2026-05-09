@@ -443,15 +443,33 @@ function ToolCall({
   );
 }
 
+// Format context length for display
+function formatContextLength(length: number): string {
+  if (length >= 1000000) {
+    return `${(length / 1000000).toFixed(1)}M`;
+  }
+  if (length >= 1000) {
+    return `${(length / 1000).toFixed(0)}K`;
+  }
+  return String(length);
+}
+
 // Status indicator for model
 function ModelStatusIndicator({ state }: { state: ModelState }) {
   switch (state.loadStatus) {
     case "ready":
       return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-          Ready
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+            Ready
+          </span>
+          {state.contextLength && (
+            <span className="text-xs text-gray-400" title="Context window size">
+              {formatContextLength(state.contextLength)} ctx
+            </span>
+          )}
+        </div>
       );
     case "loading":
       return (

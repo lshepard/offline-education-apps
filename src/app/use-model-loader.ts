@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { transformersJS } from "@browser-ai/transformers-js";
 import { MODELS, ModelConfig } from "./models";
+import { getOrCreateModelInstance } from "./chat-transport";
 
 export type DownloadStatus = "unknown" | "checking" | "not-downloaded" | "downloaded";
 export type LoadStatus = "idle" | "loading" | "ready" | "error";
@@ -12,6 +12,26 @@ export interface ModelState {
   loadStatus: LoadStatus;
   progress: number;
   error?: string;
+  contextLength?: number;
+}
+
+// Fetch model config to get context length
+async function fetchModelContextLength(modelId: string): Promise<number | undefined> {
+  try {
+    const configUrl = `https://huggingface.co/${modelId}/resolve/main/config.json`;
+    const response = await fetch(configUrl);
+    if (!response.ok) return undefined;
+
+    const config = await response.json();
+    // Different models use different field names
+    return config.max_position_embeddings
+      || config.max_seq_len
+      || config.n_positions
+      || config.seq_length
+      || config.sliding_window; // Some models use this
+  } catch {
+    return undefined;
+  }
 }
 
 // Check if a model's files are in the browser cache
@@ -92,17 +112,8 @@ export function useModelLoader() {
     }));
 
     try {
-      const instance = transformersJS(model.id, {
-        device: model.device,
-        dtype: model.dtype,
-        ...(model.supportsWorker && typeof Worker !== "undefined"
-          ? {
-              worker: new Worker(new URL("./worker.ts", import.meta.url), {
-                type: "module",
-              }),
-            }
-          : {}),
-      });
+      // Use shared model instance
+      const instance = getOrCreateModelInstance(model);
 
       await instance.createSessionWithProgress((progress: number) => {
         const percent = Math.round(progress * 100);
@@ -118,13 +129,17 @@ export function useModelLoader() {
         }));
       });
 
+      // Fetch context length from model config
+      const contextLength = await fetchModelContextLength(model.id);
+
       setModelStates((prev) => ({
         ...prev,
         [model.id]: {
           ...prev[model.id],
           loadStatus: "ready",
           downloadStatus: "downloaded",
-          progress: 100
+          progress: 100,
+          contextLength,
         },
       }));
     } catch (error) {
@@ -154,17 +169,8 @@ export function useModelLoader() {
     }));
 
     try {
-      const instance = transformersJS(model.id, {
-        device: model.device,
-        dtype: model.dtype,
-        ...(model.supportsWorker && typeof Worker !== "undefined"
-          ? {
-              worker: new Worker(new URL("./worker.ts", import.meta.url), {
-                type: "module",
-              }),
-            }
-          : {}),
-      });
+      // Use shared model instance
+      const instance = getOrCreateModelInstance(model);
 
       await instance.createSessionWithProgress((progress: number) => {
         const percent = Math.round(progress * 100);
@@ -178,13 +184,17 @@ export function useModelLoader() {
         }));
       });
 
+      // Fetch context length from model config
+      const contextLength = await fetchModelContextLength(model.id);
+
       setModelStates((prev) => ({
         ...prev,
         [model.id]: {
           ...prev[model.id],
           loadStatus: "ready",
           downloadStatus: "downloaded",
-          progress: 100
+          progress: 100,
+          contextLength,
         },
       }));
     } catch (error) {

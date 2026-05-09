@@ -15,11 +15,34 @@ import {
 import { MODELS, ModelConfig } from "./models";
 import { createTools } from "./tools";
 
+// Global cache of initialized model instances to avoid re-loading
+const modelInstanceCache = new Map<string, TransformersJSLanguageModel>();
+
+export function getOrCreateModelInstance(modelConfig: ModelConfig): TransformersJSLanguageModel {
+  const cached = modelInstanceCache.get(modelConfig.id);
+  if (cached) {
+    return cached;
+  }
+
+  const instance = transformersJS(modelConfig.id, {
+    device: modelConfig.device,
+    dtype: modelConfig.dtype,
+    ...(modelConfig.supportsWorker && typeof Worker !== "undefined"
+      ? {
+          worker: new Worker(new URL("./worker.ts", import.meta.url), {
+            type: "module",
+          }),
+        }
+      : {}),
+  });
+
+  modelInstanceCache.set(modelConfig.id, instance);
+  return instance;
+}
+
 export class TransformersChatTransport
   implements ChatTransport<TransformersUIMessage>
 {
-  private model: TransformersJSLanguageModel | null = null;
-  private currentModelId: string | null = null;
   private tools: ReturnType<typeof createTools>;
   private modelConfig: ModelConfig;
   private systemPrompt: string;
@@ -31,22 +54,7 @@ export class TransformersChatTransport
   }
 
   private getModel(): TransformersJSLanguageModel {
-    // Create new model if config changed or not initialized
-    if (!this.model || this.currentModelId !== this.modelConfig.id) {
-      this.currentModelId = this.modelConfig.id;
-      this.model = transformersJS(this.modelConfig.id, {
-        device: this.modelConfig.device,
-        dtype: this.modelConfig.dtype,
-        ...(this.modelConfig.supportsWorker && typeof Worker !== "undefined"
-          ? {
-              worker: new Worker(new URL("./worker.ts", import.meta.url), {
-                type: "module",
-              }),
-            }
-          : {}),
-      });
-    }
-    return this.model;
+    return getOrCreateModelInstance(this.modelConfig);
   }
 
   async sendMessages(
