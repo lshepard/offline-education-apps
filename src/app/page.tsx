@@ -895,16 +895,19 @@ function ChatInterface({
                       </svg>
                     </div>
                     <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
-                      Failed to load model
+                      Download interrupted
                     </h2>
-                    <p className="text-sm text-red-500 dark:text-red-400 mb-4">
-                      {currentModelState.error || "An unknown error occurred"}
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                      This can happen if your device went to sleep or lost connection.
+                    </p>
+                    <p className="text-xs text-gray-400 mb-4">
+                      Progress is saved - tap retry to continue where you left off.
                     </p>
                     <button
                       onClick={() => onLoadModel(selectedModel)}
                       className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
                     >
-                      Try Again
+                      Retry Download
                     </button>
                   </>
                 ) : (

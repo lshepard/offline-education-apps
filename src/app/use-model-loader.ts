@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MODELS, ModelConfig } from "./models";
-import { getOrCreateModelInstance } from "./chat-transport";
+import { getOrCreateModelInstance, clearModelInstance } from "./chat-transport";
 
 export type DownloadStatus = "unknown" | "checking" | "not-downloaded" | "downloaded";
 export type LoadStatus = "idle" | "loading" | "ready" | "error";
@@ -41,23 +41,22 @@ async function checkModelInCache(modelId: string): Promise<boolean> {
   }
 
   try {
-    // Get all cache names and search through them
-    const cacheNames = await caches.keys();
+    // Check the transformers-cache specifically (used by @huggingface/transformers)
+    const cache = await caches.open("transformers-cache");
+    const keys = await cache.keys();
 
-    for (const cacheName of cacheNames) {
-      const cache = await caches.open(cacheName);
-      const keys = await cache.keys();
-
-      // Check if any cached URL contains this model's ID
-      for (const request of keys) {
-        if (request.url.includes(modelId)) {
-          return true;
-        }
+    // Count matching files for this model
+    let matchCount = 0;
+    for (const request of keys) {
+      if (request.url.includes(modelId)) {
+        matchCount++;
       }
     }
 
-    return false;
-  } catch {
+    console.log(`[Cache] ${modelId}: found ${matchCount} cached files`);
+    return matchCount > 0;
+  } catch (e) {
+    console.error("[Cache] Error checking cache:", e);
     return false;
   }
 }
@@ -74,6 +73,9 @@ export function useModelLoader() {
     }
     return initial;
   });
+
+  // Track which model is currently being loaded for resume on wake
+  const loadingModelRef = useRef<ModelConfig | null>(null);
 
   // Check download status of all models on mount
   useEffect(() => {
@@ -99,16 +101,47 @@ export function useModelLoader() {
     checkAllModels();
   }, []);
 
+  // Resume download when page becomes visible again (phone wake)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // Check if any model was in error state and retry
+        for (const model of MODELS) {
+          const state = modelStates[model.id];
+          if (state?.loadStatus === "error") {
+            console.log(`[Resume] Retrying failed model: ${model.name}`);
+            // Clear the error and allow retry
+            setModelStates((prev) => ({
+              ...prev,
+              [model.id]: { ...prev[model.id], loadStatus: "idle", error: undefined },
+            }));
+          }
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [modelStates]);
+
   // Load a model (download if needed, then initialize)
-  const loadModel = useCallback(async (model: ModelConfig) => {
+  const loadModel = useCallback(async (model: ModelConfig, isRetry = false) => {
     const currentState = modelStates[model.id];
     if (currentState?.loadStatus === "ready" || currentState?.loadStatus === "loading") {
       return;
     }
 
+    // Track loading model for resume on wake
+    loadingModelRef.current = model;
+
+    // If retrying, clear the old instance to get a fresh one
+    if (isRetry) {
+      clearModelInstance(model.id);
+    }
+
     setModelStates((prev) => ({
       ...prev,
-      [model.id]: { ...prev[model.id], loadStatus: "loading", progress: 0 },
+      [model.id]: { ...prev[model.id], loadStatus: "loading", progress: 0, error: undefined },
     }));
 
     try {
@@ -132,6 +165,7 @@ export function useModelLoader() {
       // Fetch context length from model config
       const contextLength = await fetchModelContextLength(model.id);
 
+      loadingModelRef.current = null;
       setModelStates((prev) => ({
         ...prev,
         [model.id]: {
@@ -144,6 +178,7 @@ export function useModelLoader() {
       }));
     } catch (error) {
       console.error("Failed to load model:", error);
+      loadingModelRef.current = null;
       setModelStates((prev) => ({
         ...prev,
         [model.id]: {
@@ -219,7 +254,7 @@ export function useModelLoader() {
     }
 
     try {
-      const cache = await caches.open("default");
+      const cache = await caches.open("transformers-cache");
       const keys = await cache.keys();
 
       // Delete all cached files for this model

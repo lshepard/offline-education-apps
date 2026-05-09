@@ -12,8 +12,13 @@ import {
   TransformersUIMessage,
   transformersJS,
 } from "@browser-ai/transformers-js";
+import { env } from "@huggingface/transformers";
 import { MODELS, ModelConfig } from "./models";
 import { createTools } from "./tools";
+
+// Configure transformers.js to use browser cache
+env.useBrowserCache = true;
+env.allowLocalModels = false;
 
 // Global cache of initialized model instances to avoid re-loading
 const modelInstanceCache = new Map<string, TransformersJSLanguageModel>();
@@ -38,6 +43,11 @@ export function getOrCreateModelInstance(modelConfig: ModelConfig): Transformers
 
   modelInstanceCache.set(modelConfig.id, instance);
   return instance;
+}
+
+// Clear a model instance from the cache (used when retrying after error)
+export function clearModelInstance(modelId: string): void {
+  modelInstanceCache.delete(modelId);
 }
 
 export class TransformersChatTransport
@@ -115,7 +125,7 @@ export class TransformersChatTransport
               data: {
                 status: "downloading",
                 progress: percent,
-                message: `Downloading model... ${percent}%`,
+                message: `Loading model... ${percent}%`,
               },
             });
           });
