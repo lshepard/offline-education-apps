@@ -93,17 +93,6 @@ export const MODELS: ModelConfig[] = [
   },
   // IBM Granite models
   {
-    id: "onnx-community/Granite-4.1-3b-Onnx",
-    name: "Granite 4.1 3B",
-    company: "IBM",
-    releaseDate: "2026-04",
-    parameters: "3B",
-    memoryRequired: "~2 GB",
-    device: "webgpu",
-    dtype: "q4f16",
-    supportsWorker: true,
-  },
-  {
     id: "onnx-community/granite-4.0-1b-ONNX-web",
     name: "Granite 4.0 1B",
     company: "IBM",
