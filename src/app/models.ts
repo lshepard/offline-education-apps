@@ -130,7 +130,7 @@ export const MODELS: ModelConfig[] = [
     id: "mistralai/Ministral-3-3B-Instruct-2512-ONNX",
     name: "Ministral 3B",
     company: "Mistral AI",
-    releaseDate: "2025-01",
+    releaseDate: "2025-12",
     parameters: "3.4B",
     memoryRequired: "~2.5 GB",
     device: "webgpu",
