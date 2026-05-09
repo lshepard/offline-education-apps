@@ -60,7 +60,7 @@ function PresetIcon({ icon, className }: { icon: string; className?: string }) {
 
 
 // Sort configuration type
-type SortField = "name" | "company" | "releaseDate" | "parameters" | "memory" | "status";
+type SortField = "name" | "company" | "releaseDate" | "parameters" | "memory";
 type SortDirection = "asc" | "desc";
 
 // Helper to parse parameter strings for sorting (e.g., "1.5B" -> 1500, "350M" -> 350)
@@ -117,19 +117,22 @@ function HomePage({
   onStartChat,
   onSelectPreset,
   modelStates,
-  onLoadModel,
+  onDownloadModel,
+  onClearModel,
 }: {
   onStartChat: (model: ModelConfig) => void;
   onSelectPreset: (preset: EducationalPreset, model: ModelConfig) => void;
   modelStates: Record<string, ModelState>;
-  onLoadModel: (model: ModelConfig) => void;
+  onDownloadModel: (model: ModelConfig) => void;
+  onClearModel: (model: ModelConfig) => void;
 }) {
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [selectedModelForPreset, setSelectedModelForPreset] = useState<ModelConfig>(MODELS[0]);
 
-  // Check if any model is ready
-  const readyModels = MODELS.filter(m => modelStates[m.id]?.status === "ready");
-  const hasAnyModelReady = readyModels.length > 0;
+  // Get downloaded models for preset selector
+  const downloadedModels = MODELS.filter(m => modelStates[m.id]?.downloadStatus === "downloaded");
+  const hasDownloadedModels = downloadedModels.length > 0;
 
   // Sort models
   const sortedModels = useMemo(() => {
@@ -151,16 +154,10 @@ function HomePage({
         case "memory":
           comparison = parseMemory(a.memoryRequired) - parseMemory(b.memoryRequired);
           break;
-        case "status":
-          const statusOrder = { ready: 0, downloading: 1, checking: 2, "not-downloaded": 3, unknown: 4 };
-          const aStatus = modelStates[a.id]?.status || "unknown";
-          const bStatus = modelStates[b.id]?.status || "unknown";
-          comparison = (statusOrder[aStatus] || 4) - (statusOrder[bStatus] || 4);
-          break;
       }
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [sortField, sortDirection, modelStates]);
+  }, [sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -205,16 +202,15 @@ function HomePage({
                     <SortableHeader label="Released" field="releaseDate" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell" />
                     <SortableHeader label="Parameters" field="parameters" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell" />
                     <SortableHeader label="Memory" field="memory" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell" />
-                    <SortableHeader label="Status" field="status" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
                     <th className="text-right px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {sortedModels.map((model) => {
                     const state = modelStates[model.id];
-                    const isReady = state?.status === "ready";
-                    const isDownloading = state?.status === "downloading";
-                    const isChecking = state?.status === "checking";
+                    const isDownloaded = state?.downloadStatus === "downloaded";
+                    const isDownloading = state?.loadStatus === "loading";
+                    const isChecking = state?.downloadStatus === "checking";
 
                     return (
                       <tr key={model.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
@@ -233,47 +229,47 @@ function HomePage({
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">{model.releaseDate}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">{model.parameters}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">{model.memoryRequired}</td>
-                        <td className="px-4 py-3">
-                          {isReady ? (
-                            <span className="inline-flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                              <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                              Ready
-                            </span>
-                          ) : isDownloading ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                                <div
-                                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                                  style={{ width: `${state.progress}%` }}
-                                />
-                              </div>
-                              <span className="text-blue-600 dark:text-blue-400 text-xs">{state.progress}%</span>
-                            </div>
-                          ) : isChecking ? (
-                            <span className="text-gray-400">Checking...</span>
-                          ) : (
-                            <span className="text-gray-400">Not downloaded</span>
-                          )}
-                        </td>
                         <td className="px-4 py-3 text-right">
-                          {isReady ? (
-                            <button
-                              onClick={() => onStartChat(model)}
-                              className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
-                            >
-                              Start Chat
-                            </button>
-                          ) : isDownloading ? (
-                            <span className="text-xs text-gray-400">Downloading...</span>
-                          ) : (
-                            <button
-                              onClick={() => onLoadModel(model)}
-                              disabled={isChecking}
-                              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md transition-colors disabled:opacity-50"
-                            >
-                              Download
-                            </button>
-                          )}
+                          <div className="flex items-center justify-end gap-2">
+                            {isDownloading ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                                  <div
+                                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                                    style={{ width: `${state.progress}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-gray-500">{state.progress}%</span>
+                              </div>
+                            ) : isDownloaded ? (
+                              <>
+                                <button
+                                  onClick={() => onStartChat(model)}
+                                  className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+                                >
+                                  Start Chat
+                                </button>
+                                <button
+                                  onClick={() => onClearModel(model)}
+                                  className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                                  title="Remove from cache"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </>
+                            ) : isChecking ? (
+                              <span className="text-xs text-gray-400">Checking...</span>
+                            ) : (
+                              <button
+                                onClick={() => onDownloadModel(model)}
+                                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+                              >
+                                Download
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -289,18 +285,39 @@ function HomePage({
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
             Educational Tools
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            {hasAnyModelReady
-              ? "Select a tool to start with a pre-configured AI assistant."
-              : "Download a model above to use these tools."}
-          </p>
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {hasDownloadedModels
+                ? "Select a tool to start with a pre-configured AI assistant."
+                : "Download a model above to use these tools."}
+            </p>
+            {hasDownloadedModels && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400">Model:</label>
+                <select
+                  value={selectedModelForPreset.id}
+                  onChange={(e) => {
+                    const model = MODELS.find((m) => m.id === e.target.value);
+                    if (model) setSelectedModelForPreset(model);
+                  }}
+                  className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  {downloadedModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
 
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
             {EDUCATIONAL_PRESETS.map((preset) => (
               <button
                 key={preset.id}
-                onClick={() => hasAnyModelReady && onSelectPreset(preset, readyModels[0])}
-                disabled={!hasAnyModelReady}
+                onClick={() => hasDownloadedModels && onSelectPreset(preset, selectedModelForPreset)}
+                disabled={!hasDownloadedModels}
                 className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 first:rounded-t-lg last:rounded-b-lg"
               >
                 <PresetIcon icon={preset.icon} className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -498,7 +515,7 @@ function ToolCall({
 
 // Status indicator for model
 function ModelStatusIndicator({ state }: { state: ModelState }) {
-  switch (state.status) {
+  switch (state.loadStatus) {
     case "ready":
       return (
         <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
@@ -506,7 +523,7 @@ function ModelStatusIndicator({ state }: { state: ModelState }) {
           Ready
         </span>
       );
-    case "downloading":
+    case "loading":
       return (
         <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
           <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -516,8 +533,8 @@ function ModelStatusIndicator({ state }: { state: ModelState }) {
           {state.progress}%
         </span>
       );
-    case "checking":
-      return <span className="text-xs text-gray-400">Checking...</span>;
+    case "error":
+      return <span className="text-xs text-red-500">Error</span>;
     default:
       return <span className="text-xs text-gray-400">Not loaded</span>;
   }
@@ -536,7 +553,7 @@ function ModelSelector({
   disabled: boolean;
 }) {
   const currentState = modelStates[selectedModel.id];
-  const isLoading = currentState?.status === "downloading";
+  const isLoading = currentState?.loadStatus === "loading";
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
@@ -556,10 +573,11 @@ function ModelSelector({
           >
             {MODELS.map((model) => {
               const state = modelStates[model.id];
-              const isReady = state?.status === "ready";
+              const isReady = state?.loadStatus === "ready";
+              const isDownloaded = state?.downloadStatus === "downloaded";
               return (
                 <option key={model.id} value={model.id}>
-                  {model.name}{isReady ? " ✓" : ""}
+                  {model.name}{isReady ? " ✓" : isDownloaded ? " (cached)" : ""}
                 </option>
               );
             })}
@@ -572,7 +590,7 @@ function ModelSelector({
       {isLoading && (
         <div className="mt-3">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Downloading model...</span>
+            <span>Loading model...</span>
             <span>{currentState.progress}%</span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
@@ -687,6 +705,7 @@ function ChatInterface({
   selectedModel,
   modelStates,
   onModelChange,
+  onLoadModel,
 }: {
   systemPrompt: string;
   presetName?: string;
@@ -695,12 +714,22 @@ function ChatInterface({
   selectedModel: ModelConfig;
   modelStates: Record<string, ModelState>;
   onModelChange: (model: ModelConfig) => void;
+  onLoadModel: (model: ModelConfig) => void;
 }) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const currentModelState = modelStates[selectedModel.id];
-  const isModelReady = currentModelState?.status === "ready";
+  const isModelReady = currentModelState?.loadStatus === "ready";
+  const isModelLoading = currentModelState?.loadStatus === "loading";
+  const isModelError = currentModelState?.loadStatus === "error";
+
+  // Auto-load model when entering chat
+  useEffect(() => {
+    if (currentModelState?.loadStatus === "idle") {
+      onLoadModel(selectedModel);
+    }
+  }, [selectedModel, currentModelState?.loadStatus, onLoadModel]);
 
   const transport = useMemo(
     () => new TransformersChatTransport(selectedModel, systemPrompt),
@@ -804,7 +833,7 @@ function ChatInterface({
                         : "Ask questions, get explanations, or explore topics."}
                     </p>
                   </>
-                ) : currentModelState?.status === "downloading" ? (
+                ) : isModelLoading ? (
                   <>
                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
                       <svg className="w-6 h-6 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -815,9 +844,40 @@ function ChatInterface({
                     <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
                       Loading {selectedModel.name}
                     </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {currentModelState.progress}% downloaded
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      {currentModelState.progress > 0
+                        ? `${currentModelState.progress}% - ${currentModelState.progress < 100 ? "Downloading model files..." : "Initializing..."}`
+                        : "Preparing to download..."}
                     </p>
+                    <div className="w-48 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${currentModelState.progress}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-3">
+                      Model files are cached locally for offline use
+                    </p>
+                  </>
+                ) : isModelError ? (
+                  <>
+                    <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+                      <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
+                      Failed to load model
+                    </h2>
+                    <p className="text-sm text-red-500 dark:text-red-400 mb-4">
+                      {currentModelState.error || "An unknown error occurred"}
+                    </p>
+                    <button
+                      onClick={() => onLoadModel(selectedModel)}
+                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                    >
+                      Try Again
+                    </button>
                   </>
                 ) : (
                   <>
@@ -962,7 +1022,7 @@ export default function Page() {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [presetName, setPresetName] = useState<string | undefined>();
   const [selectedModel, setSelectedModel] = useState<ModelConfig>(MODELS[0]);
-  const { modelStates, loadModel } = useModelLoader();
+  const { modelStates, loadModel, downloadModel, clearModel } = useModelLoader();
 
   const handleStartChat = (model: ModelConfig) => {
     setSelectedModel(model);
@@ -999,6 +1059,7 @@ export default function Page() {
         selectedModel={selectedModel}
         modelStates={modelStates}
         onModelChange={handleModelChange}
+        onLoadModel={loadModel}
       />
     );
   }
@@ -1008,7 +1069,8 @@ export default function Page() {
       onStartChat={handleStartChat}
       onSelectPreset={handleSelectPreset}
       modelStates={modelStates}
-      onLoadModel={loadModel}
+      onDownloadModel={downloadModel}
+      onClearModel={clearModel}
     />
   );
 }
