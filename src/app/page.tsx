@@ -58,37 +58,124 @@ function PresetIcon({ icon, className }: { icon: string; className?: string }) {
   return icons[icon] || icons["clipboard-list"];
 }
 
-// Color classes for preset cards
-const colorClasses: Record<string, { bg: string; icon: string; border: string }> = {
-  blue: { bg: "bg-blue-50 dark:bg-blue-900/20", icon: "text-blue-500", border: "border-blue-200 dark:border-blue-800" },
-  purple: { bg: "bg-purple-50 dark:bg-purple-900/20", icon: "text-purple-500", border: "border-purple-200 dark:border-purple-800" },
-  yellow: { bg: "bg-yellow-50 dark:bg-yellow-900/20", icon: "text-yellow-500", border: "border-yellow-200 dark:border-yellow-800" },
-  green: { bg: "bg-green-50 dark:bg-green-900/20", icon: "text-green-500", border: "border-green-200 dark:border-green-800" },
-  red: { bg: "bg-red-50 dark:bg-red-900/20", icon: "text-red-500", border: "border-red-200 dark:border-red-800" },
-  indigo: { bg: "bg-indigo-50 dark:bg-indigo-900/20", icon: "text-indigo-500", border: "border-indigo-200 dark:border-indigo-800" },
-  teal: { bg: "bg-teal-50 dark:bg-teal-900/20", icon: "text-teal-500", border: "border-teal-200 dark:border-teal-800" },
-  orange: { bg: "bg-orange-50 dark:bg-orange-900/20", icon: "text-orange-500", border: "border-orange-200 dark:border-orange-800" },
-};
+
+// Sort configuration type
+type SortField = "name" | "company" | "releaseDate" | "parameters" | "memory" | "status";
+type SortDirection = "asc" | "desc";
+
+// Helper to parse parameter strings for sorting (e.g., "1.5B" -> 1500, "350M" -> 350)
+function parseParameters(param: string): number {
+  const match = param.match(/^([\d.]+)(B|M)?$/i);
+  if (!match) return 0;
+  const value = parseFloat(match[1]);
+  const unit = (match[2] || "").toUpperCase();
+  if (unit === "B") return value * 1000;
+  if (unit === "M") return value;
+  return value;
+}
+
+// Helper to parse memory strings for sorting (e.g., "~1.5 GB" -> 1.5)
+function parseMemory(mem: string): number {
+  const match = mem.match(/([\d.]+)/);
+  return match ? parseFloat(match[1]) : 0;
+}
+
+// Sortable table header component
+function SortableHeader({
+  label,
+  field,
+  currentSort,
+  currentDirection,
+  onSort,
+  className,
+}: {
+  label: string;
+  field: SortField;
+  currentSort: SortField;
+  currentDirection: SortDirection;
+  onSort: (field: SortField) => void;
+  className?: string;
+}) {
+  const isActive = currentSort === field;
+  return (
+    <th
+      className={`text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 select-none ${className || ""}`}
+      onClick={() => onSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        <span className={`text-xs ${isActive ? "text-blue-500" : "text-gray-400"}`}>
+          {isActive ? (currentDirection === "asc" ? "▲" : "▼") : "▲"}
+        </span>
+      </div>
+    </th>
+  );
+}
 
 // Home page component
 function HomePage({
   onStartChat,
   onSelectPreset,
   modelStates,
+  onLoadModel,
 }: {
-  onStartChat: () => void;
-  onSelectPreset: (preset: EducationalPreset) => void;
+  onStartChat: (model: ModelConfig) => void;
+  onSelectPreset: (preset: EducationalPreset, model: ModelConfig) => void;
   modelStates: Record<string, ModelState>;
+  onLoadModel: (model: ModelConfig) => void;
 }) {
-  const defaultModelState = modelStates[MODELS[0].id];
-  const isModelReady = defaultModelState?.status === "ready";
-  const isDownloading = defaultModelState?.status === "downloading";
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  // Check if any model is ready
+  const readyModels = MODELS.filter(m => modelStates[m.id]?.status === "ready");
+  const hasAnyModelReady = readyModels.length > 0;
+
+  // Sort models
+  const sortedModels = useMemo(() => {
+    return [...MODELS].sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case "name":
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case "company":
+          comparison = a.company.localeCompare(b.company);
+          break;
+        case "releaseDate":
+          comparison = a.releaseDate.localeCompare(b.releaseDate);
+          break;
+        case "parameters":
+          comparison = parseParameters(a.parameters) - parseParameters(b.parameters);
+          break;
+        case "memory":
+          comparison = parseMemory(a.memoryRequired) - parseMemory(b.memoryRequired);
+          break;
+        case "status":
+          const statusOrder = { ready: 0, downloading: 1, checking: 2, "not-downloaded": 3, unknown: 4 };
+          const aStatus = modelStates[a.id]?.status || "unknown";
+          const bStatus = modelStates[b.id]?.status || "unknown";
+          comparison = (statusOrder[aStatus] || 4) - (statusOrder[bStatus] || 4);
+          break;
+      }
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [sortField, sortDirection, modelStates]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="max-w-6xl mx-auto px-4 py-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Offline AI Teaching Tools
           </h1>
@@ -98,65 +185,122 @@ function HomePage({
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        {/* Model status banner */}
-        {isDownloading && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                  Downloading AI Model...
-                </p>
-                <p className="text-sm text-blue-600 dark:text-blue-300">
-                  {defaultModelState.progress}% complete. This only happens once.
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${defaultModelState.progress}%` }}
-              />
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Models Section */}
+        <div className="mb-10">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            Available Models
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Download a model to get started. Models are cached locally and work offline after the first download.
+          </p>
+
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <SortableHeader label="Model" field="name" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                    <SortableHeader label="Company" field="company" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell" />
+                    <SortableHeader label="Released" field="releaseDate" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell" />
+                    <SortableHeader label="Parameters" field="parameters" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell" />
+                    <SortableHeader label="Memory" field="memory" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell" />
+                    <SortableHeader label="Status" field="status" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                    <th className="text-right px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {sortedModels.map((model) => {
+                    const state = modelStates[model.id];
+                    const isReady = state?.status === "ready";
+                    const isDownloading = state?.status === "downloading";
+                    const isChecking = state?.status === "checking";
+
+                    return (
+                      <tr key={model.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                        <td className="px-4 py-3">
+                          <a
+                            href={`https://huggingface.co/${model.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            {model.name}
+                          </a>
+                          <div className="text-xs text-gray-400 sm:hidden">{model.company}</div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden sm:table-cell">{model.company}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">{model.releaseDate}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">{model.parameters}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">{model.memoryRequired}</td>
+                        <td className="px-4 py-3">
+                          {isReady ? (
+                            <span className="inline-flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                              <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                              Ready
+                            </span>
+                          ) : isDownloading ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                                <div
+                                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                                  style={{ width: `${state.progress}%` }}
+                                />
+                              </div>
+                              <span className="text-blue-600 dark:text-blue-400 text-xs">{state.progress}%</span>
+                            </div>
+                          ) : isChecking ? (
+                            <span className="text-gray-400">Checking...</span>
+                          ) : (
+                            <span className="text-gray-400">Not downloaded</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {isReady ? (
+                            <button
+                              onClick={() => onStartChat(model)}
+                              className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+                            >
+                              Start Chat
+                            </button>
+                          ) : isDownloading ? (
+                            <span className="text-xs text-gray-400">Downloading...</span>
+                          ) : (
+                            <button
+                              onClick={() => onLoadModel(model)}
+                              disabled={isChecking}
+                              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md transition-colors disabled:opacity-50"
+                            >
+                              Download
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
-        )}
-
-        {/* Start New Chat button */}
-        <div className="mb-8">
-          <button
-            onClick={onStartChat}
-            disabled={!isModelReady}
-            className="w-full sm:w-auto px-8 py-4 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white text-lg font-semibold rounded-xl transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-3"
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Start New Chat
-            {!isModelReady && !isDownloading && (
-              <span className="text-sm font-normal opacity-75">(Loading model...)</span>
-            )}
-          </button>
         </div>
 
         {/* Educational Tools Section */}
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <div className="mb-10">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
             Educational Tools
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Select a tool to start with a pre-configured AI assistant.
+            {hasAnyModelReady
+              ? "Select a tool to start with a pre-configured AI assistant."
+              : "Download a model above to use these tools."}
           </p>
 
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
             {EDUCATIONAL_PRESETS.map((preset) => (
               <button
                 key={preset.id}
-                onClick={() => onSelectPreset(preset)}
-                disabled={!isModelReady}
+                onClick={() => hasAnyModelReady && onSelectPreset(preset, readyModels[0])}
+                disabled={!hasAnyModelReady}
                 className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 first:rounded-t-lg last:rounded-b-lg"
               >
                 <PresetIcon icon={preset.icon} className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -175,7 +319,7 @@ function HomePage({
         </div>
 
         {/* Privacy notice */}
-        <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+        <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <div className="flex gap-3">
             <svg className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -817,15 +961,18 @@ export default function Page() {
   const [view, setView] = useState<"home" | "chat">("home");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [presetName, setPresetName] = useState<string | undefined>();
-  const { selectedModel, selectModel, modelStates } = useModelLoader();
+  const [selectedModel, setSelectedModel] = useState<ModelConfig>(MODELS[0]);
+  const { modelStates, loadModel } = useModelLoader();
 
-  const handleStartChat = () => {
+  const handleStartChat = (model: ModelConfig) => {
+    setSelectedModel(model);
     setSystemPrompt("");
     setPresetName(undefined);
     setView("chat");
   };
 
-  const handleSelectPreset = (preset: EducationalPreset) => {
+  const handleSelectPreset = (preset: EducationalPreset, model: ModelConfig) => {
+    setSelectedModel(model);
     setSystemPrompt(preset.systemPrompt);
     setPresetName(preset.name);
     setView("chat");
@@ -838,7 +985,8 @@ export default function Page() {
   };
 
   const handleModelChange = (model: ModelConfig) => {
-    selectModel(model);
+    setSelectedModel(model);
+    loadModel(model);
   };
 
   if (view === "chat") {
@@ -860,6 +1008,7 @@ export default function Page() {
       onStartChat={handleStartChat}
       onSelectPreset={handleSelectPreset}
       modelStates={modelStates}
+      onLoadModel={loadModel}
     />
   );
 }

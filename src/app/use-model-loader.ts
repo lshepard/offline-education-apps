@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { transformersJS } from "@browser-ai/transformers-js";
-import { MODELS, ModelConfig, DEFAULT_MODEL } from "./models";
+import { MODELS, ModelConfig } from "./models";
 
 export type ModelStatus = "unknown" | "checking" | "not-downloaded" | "downloading" | "ready";
 
@@ -12,7 +12,6 @@ export interface ModelState {
 }
 
 export function useModelLoader() {
-  const [selectedModel, setSelectedModel] = useState<ModelConfig>(DEFAULT_MODEL);
   const [modelStates, setModelStates] = useState<Record<string, ModelState>>(() => {
     const initial: Record<string, ModelState> = {};
     for (const model of MODELS) {
@@ -102,27 +101,7 @@ export function useModelLoader() {
     }
   }, [modelStates]);
 
-  // Auto-load when model is selected
-  const selectModel = useCallback(
-    (model: ModelConfig) => {
-      setSelectedModel(model);
-      loadModel(model);
-    },
-    [loadModel]
-  );
-
-  // Auto-load default model on mount
-  useEffect(() => {
-    // Small delay to let availability check run first
-    const timer = setTimeout(() => {
-      loadModel(DEFAULT_MODEL);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
   return {
-    selectedModel,
-    selectModel,
     modelStates,
     loadModel,
   };
