@@ -6,58 +6,8 @@ import { TransformersUIMessage } from "@browser-ai/transformers-js";
 import { TransformersChatTransport } from "./chat-transport";
 import { MODELS, ModelConfig } from "./models";
 import { useModelLoader, ModelState } from "./use-model-loader";
-import { EDUCATIONAL_PRESETS, EducationalPreset } from "./presets";
+import { EDUCATIONAL_PRESETS } from "./presets";
 import ReactMarkdown from "react-markdown";
-
-// Icon components for presets
-function PresetIcon({ icon, className }: { icon: string; className?: string }) {
-  const icons: Record<string, React.ReactNode> = {
-    "clipboard-list": (
-      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-      </svg>
-    ),
-    "academic-cap": (
-      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-      </svg>
-    ),
-    "star": (
-      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-      </svg>
-    ),
-    "book-open": (
-      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-      </svg>
-    ),
-    "question-mark-circle": (
-      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    "table-cells": (
-      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-      </svg>
-    ),
-    "users": (
-      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-      </svg>
-    ),
-    "envelope": (
-      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-  };
-
-  return icons[icon] || icons["clipboard-list"];
-}
-
 
 // Sort configuration type
 type SortField = "name" | "company" | "releaseDate" | "parameters" | "memory";
@@ -115,24 +65,17 @@ function SortableHeader({
 // Home page component
 function HomePage({
   onStartChat,
-  onSelectPreset,
   modelStates,
   onDownloadModel,
   onClearModel,
 }: {
   onStartChat: (model: ModelConfig) => void;
-  onSelectPreset: (preset: EducationalPreset, model: ModelConfig) => void;
   modelStates: Record<string, ModelState>;
   onDownloadModel: (model: ModelConfig) => void;
   onClearModel: (model: ModelConfig) => void;
 }) {
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [selectedModelForPreset, setSelectedModelForPreset] = useState<ModelConfig>(MODELS[0]);
-
-  // Get downloaded models for preset selector
-  const downloadedModels = MODELS.filter(m => modelStates[m.id]?.downloadStatus === "downloaded");
-  const hasDownloadedModels = downloadedModels.length > 0;
 
   // Sort models
   const sortedModels = useMemo(() => {
@@ -183,6 +126,31 @@ function HomePage({
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* About Section */}
+        <div className="mb-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+            About These Models
+          </h2>
+          <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
+            These models represent the best options from the past year for running AI directly in your browser via WebGPU,
+            with full ONNX support through{" "}
+            <a href="https://huggingface.co/docs/transformers.js" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600 dark:hover:text-blue-300">
+              transformers.js
+            </a>.
+            We're also tracking newer models like{" "}
+            <a href="https://huggingface.co/google/gemma-4-31B-it" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600 dark:hover:text-blue-300">
+              Gemma 4 31B
+            </a>,{" "}
+            <a href="https://huggingface.co/deepseek-ai/DeepSeek-V4" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600 dark:hover:text-blue-300">
+              DeepSeek V4
+            </a>, and{" "}
+            <a href="https://huggingface.co/ibm-granite/granite-4.1-8b-instruct" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600 dark:hover:text-blue-300">
+              Granite 4.1
+            </a>{" "}
+            which don't yet have full ONNX/browser support but show promise for future inclusion.
+          </p>
+        </div>
+
         {/* Models Section */}
         <div className="mb-10">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
@@ -280,61 +248,6 @@ function HomePage({
           </div>
         </div>
 
-        {/* Educational Tools Section */}
-        <div className="mb-10">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Educational Tools
-          </h2>
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {hasDownloadedModels
-                ? "Select a tool to start with a pre-configured AI assistant."
-                : "Download a model above to use these tools."}
-            </p>
-            {hasDownloadedModels && (
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500 dark:text-gray-400">Model:</label>
-                <select
-                  value={selectedModelForPreset.id}
-                  onChange={(e) => {
-                    const model = MODELS.find((m) => m.id === e.target.value);
-                    if (model) setSelectedModelForPreset(model);
-                  }}
-                  className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                >
-                  {downloadedModels.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
-            {EDUCATIONAL_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                onClick={() => hasDownloadedModels && onSelectPreset(preset, selectedModelForPreset)}
-                disabled={!hasDownloadedModels}
-                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 first:rounded-t-lg last:rounded-b-lg"
-              >
-                <PresetIcon icon={preset.icon} className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                  {preset.name}
-                </span>
-                <span className="text-gray-400 dark:text-gray-500 text-sm hidden sm:block flex-1 truncate">
-                  {preset.description}
-                </span>
-                <svg className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Privacy notice */}
         <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <div className="flex gap-3">
@@ -426,15 +339,24 @@ function MarkdownContent({ content, className }: { content: string; className?: 
 function TextWithThinking({ text }: { text: string }) {
   const [showThinking, setShowThinking] = useState(false);
 
-  const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
-  const thinkMatches = [...text.matchAll(thinkRegex)];
-  const cleanText = text.replace(thinkRegex, "").trim();
+  // Handle both closed and unclosed think blocks
+  const closedThinkRegex = /<think>([\s\S]*?)<\/think>/g;
+  const closedMatches = [...text.matchAll(closedThinkRegex)];
+  let cleanText = text.replace(closedThinkRegex, "").trim();
+  let thinkingContent = closedMatches.map((m) => m[1].trim()).join("\n\n");
 
-  if (thinkMatches.length === 0) {
-    return <MarkdownContent content={text} />;
+  // If no closed blocks found, check for unclosed <think> tag (streaming)
+  if (closedMatches.length === 0 && text.includes("<think>")) {
+    const unclosedMatch = text.match(/<think>([\s\S]*)/);
+    if (unclosedMatch && unclosedMatch[1]) {
+      thinkingContent = unclosedMatch[1].trim();
+      cleanText = ""; // No clean text yet, still thinking
+    }
   }
 
-  const thinkingContent = thinkMatches.map((m) => m[1].trim()).join("\n\n");
+  if (!thinkingContent && closedMatches.length === 0) {
+    return <MarkdownContent content={text} />;
+  }
 
   return (
     <div>
@@ -470,14 +392,20 @@ function ToolCall({
   toolName,
   args,
   result,
+  rawPart,
 }: {
   type: string;
   toolName?: string;
   args?: unknown;
   result?: unknown;
+  rawPart?: unknown;
 }) {
   const [expanded, setExpanded] = useState(false);
   const isResult = type === "tool-result";
+
+  // Show the content to display
+  const displayContent = isResult ? result : args;
+  const hasContent = displayContent !== undefined && displayContent !== null;
 
   return (
     <button
@@ -501,12 +429,14 @@ function ToolCall({
           {isResult ? "Result:" : "Tool:"}
         </span>
         <span className="font-medium text-gray-700 dark:text-gray-300">
-          {toolName || "unknown"}
+          {toolName || type}
         </span>
       </div>
       {expanded && (
-        <pre className="mt-2 text-xs text-gray-600 dark:text-gray-400 overflow-auto whitespace-pre-wrap font-mono bg-white dark:bg-gray-900 rounded p-2">
-          {JSON.stringify(isResult ? result : args, null, 2)}
+        <pre className="mt-2 text-xs text-gray-600 dark:text-gray-400 overflow-auto whitespace-pre-wrap font-mono bg-white dark:bg-gray-900 rounded p-2 max-h-48">
+          {hasContent
+            ? JSON.stringify(displayContent, null, 2)
+            : JSON.stringify(rawPart, null, 2)}
         </pre>
       )}
     </button>
@@ -674,9 +604,25 @@ function SystemPromptPanel({
             onChange={(e) => onSystemPromptChange(e.target.value)}
             disabled={disabled}
             placeholder="Example: You are a helpful tutor specializing in mathematics..."
-            rows={6}
+            rows={4}
             className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-none"
           />
+          {!disabled && !hasCustomPrompt && (
+            <div className="mt-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Try a preset:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {EDUCATIONAL_PRESETS.slice(0, 4).map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => onSystemPromptChange(preset.systemPrompt)}
+                    className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded transition-colors"
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {disabled && (
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
               Clear the conversation to modify the system prompt.
@@ -921,8 +867,9 @@ function ChatInterface({
                           <ToolCall
                             key={i}
                             type="tool-invocation"
-                            toolName={p.toolInvocation?.toolName}
-                            args={p.toolInvocation?.args}
+                            toolName={p.toolInvocation?.toolName || p.name}
+                            args={p.toolInvocation?.args || p.input}
+                            rawPart={p}
                           />
                         );
 
@@ -931,8 +878,9 @@ function ChatInterface({
                           <ToolCall
                             key={i}
                             type="tool-result"
-                            toolName={p.toolName}
-                            result={p.result}
+                            toolName={p.toolName || p.name}
+                            result={p.result || p.output}
+                            rawPart={p}
                           />
                         );
 
@@ -942,9 +890,10 @@ function ChatInterface({
                             <ToolCall
                               key={i}
                               type={part.type}
-                              toolName={p.toolName || p.toolInvocation?.toolName}
-                              args={p.args || p.toolInvocation?.args}
+                              toolName={p.toolName || p.toolInvocation?.toolName || p.name}
+                              args={p.args || p.toolInvocation?.args || p.input}
                               result={p.result || p.output}
+                              rawPart={p}
                             />
                           );
                         }
@@ -1031,13 +980,6 @@ export default function Page() {
     setView("chat");
   };
 
-  const handleSelectPreset = (preset: EducationalPreset, model: ModelConfig) => {
-    setSelectedModel(model);
-    setSystemPrompt(preset.systemPrompt);
-    setPresetName(preset.name);
-    setView("chat");
-  };
-
   const handleBack = () => {
     setView("home");
     setSystemPrompt("");
@@ -1067,7 +1009,6 @@ export default function Page() {
   return (
     <HomePage
       onStartChat={handleStartChat}
-      onSelectPreset={handleSelectPreset}
       modelStates={modelStates}
       onDownloadModel={downloadModel}
       onClearModel={clearModel}
