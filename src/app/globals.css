@@ -2,7 +2,12 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1f2937;
+  --primary: #2563eb;
+  --primary-light: #3b82f6;
+  --border: #e5e7eb;
+  --muted: #6b7280;
+  --surface: #f9fafb;
 }
 
 @theme inline {
@@ -14,13 +19,36 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #111827;
+    --foreground: #f3f4f6;
+    --primary: #3b82f6;
+    --primary-light: #60a5fa;
+    --border: #374151;
+    --muted: #9ca3af;
+    --surface: #1f2937;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }

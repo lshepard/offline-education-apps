@@ -22,10 +22,12 @@ export class TransformersChatTransport
   private currentModelId: string | null = null;
   private tools: ReturnType<typeof createTools>;
   private modelConfig: ModelConfig;
+  private systemPrompt: string;
 
-  constructor(modelConfig?: ModelConfig) {
+  constructor(modelConfig?: ModelConfig, systemPrompt?: string) {
     this.tools = createTools();
     this.modelConfig = modelConfig || MODELS[0];
+    this.systemPrompt = systemPrompt || "";
   }
 
   private getModel(): TransformersJSLanguageModel {
@@ -115,6 +117,7 @@ export class TransformersChatTransport
           model: model,
           tools: this.tools,
           stopWhen: stepCountIs(5),
+          system: this.systemPrompt || undefined,
           messages: prompt,
           abortSignal,
         });
