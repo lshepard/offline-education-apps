@@ -459,17 +459,15 @@ function ModelStatusIndicator({ state }: { state: ModelState }) {
   switch (state.loadStatus) {
     case "ready":
       return (
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-            Ready
-          </span>
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+          Ready
           {state.contextLength && (
-            <span className="text-xs text-gray-400" title="Context window size">
-              {formatContextLength(state.contextLength)} ctx
+            <span className="text-gray-400 font-normal ml-1">
+              ({formatContextLength(state.contextLength)} ctx)
             </span>
           )}
-        </div>
+        </span>
       );
     case "loading":
       return (
@@ -660,6 +658,49 @@ function SystemPromptPanel({
   );
 }
 
+// Estimate token count from text (rough approximation: ~4 chars per token)
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+// Context usage indicator
+function ContextUsageBar({
+  usedTokens,
+  maxTokens,
+}: {
+  usedTokens: number;
+  maxTokens: number | undefined;
+}) {
+  if (!maxTokens) return null;
+
+  const percentage = Math.min((usedTokens / maxTokens) * 100, 100);
+  const isWarning = percentage > 75;
+  const isCritical = percentage > 90;
+
+  return (
+    <div className="mb-4 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+          Context Window
+        </span>
+        <span className={`text-xs font-medium ${
+          isCritical ? "text-red-500" : isWarning ? "text-amber-500" : "text-gray-500 dark:text-gray-400"
+        }`}>
+          ~{usedTokens.toLocaleString()} / {maxTokens.toLocaleString()} tokens ({percentage.toFixed(0)}%)
+        </span>
+      </div>
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+        <div
+          className={`h-1.5 rounded-full transition-all duration-300 ${
+            isCritical ? "bg-red-500" : isWarning ? "bg-amber-500" : "bg-blue-500"
+          }`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Chat interface component
 function ChatInterface({
   systemPrompt,
@@ -720,6 +761,21 @@ function ChatInterface({
 
   const hasMessages = messages.length > 0;
 
+  // Estimate total tokens used in conversation
+  const estimatedTokens = useMemo(() => {
+    let total = estimateTokens(systemPrompt);
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (part.type === "text") {
+          total += estimateTokens((part as { text: string }).text);
+        }
+      }
+    }
+    // Add a small buffer for message formatting overhead
+    total += messages.length * 4;
+    return total;
+  }, [messages, systemPrompt]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -774,6 +830,14 @@ function ChatInterface({
           disabled={hasMessages}
           presetName={presetName}
         />
+
+        {/* Context usage indicator */}
+        {isModelReady && currentModelState.contextLength && (
+          <ContextUsageBar
+            usedTokens={estimatedTokens}
+            maxTokens={currentModelState.contextLength}
+          />
+        )}
 
         {/* Chat container */}
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
